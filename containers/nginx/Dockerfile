@@ -1,3 +1,4 @@
+# Nginxのイメージを指定
 FROM nginx:1.21-alpine
 
 # ローカルのdefault.confをコンテナにコピー

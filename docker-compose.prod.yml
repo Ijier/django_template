@@ -1,24 +1,26 @@
+# docker-composeのバージョンを指定
 version: "3.9"
 
-# db(MySQL),app(Django),web(Nginx)のコンテナを作成
+# db(Postgres),app(Django)のコンテナを作成
 services:
   db:
-    container_name: mysql
+    container_name: postgres
     build:
       context: .
-      dockerfile: containers/mysql/Dockerfile
-    platform: linux/x86_64
+      dockerfile: containers/postgres/Dockerfile
     volumes:
-      - ./db_data:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: pg_isready -U "${POSTGRES_USER:-postgres}" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     # コンテナ内の環境変数を.env.prodを使って設定
     env_file:
       - .env.prod
-    healthcheck:
-      test: mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD
-      interval: 10s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
   app:
     container_name: app
     build:
@@ -30,13 +32,13 @@ services:
     # 8000番ポートをNginx側が接続できるよう開く
     expose:
       - "8000"
-    command: sh -c "/code/entrypoint.sh"
+    # シェルスクリプトを実行
+    command: sh -c "/usr/local/bin/entrypoint.sh"
     # コンテナ内の環境変数を.env.prodを使って設定
     env_file:
       - .env.prod
     depends_on:
       db:
-        # dbのヘルスチェックが終わってからappを起動させる
         condition: service_healthy
   web:
     # コンテナ名をwebに指定

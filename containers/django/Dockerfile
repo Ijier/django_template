@@ -9,11 +9,10 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /code
 # ローカルのrequirements.txtをコンテナの/codeフォルダ直下に置く
 COPY requirements.txt /code/
-# コンテナ内でpipをアップグレード
-RUN pip install --upgrade pip
-# pip install -r requirements.txtを実行
-RUN pip install -r requirements.txt
+# コンテナ内でpipをアップグレードした後、pip install -r requirements.txtを実行
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 # ソースコードをコンテナにコピー
 COPY . /code/
-# entrypoint.shに実行権限を付与
-RUN chmod 755 entrypoint.sh
+COPY ./containers/django/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh

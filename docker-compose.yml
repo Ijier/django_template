@@ -1,38 +1,35 @@
 # docker-composeのバージョンを指定
 version: "3.9"
 
-# db(MySQL),app(Django)のコンテナを作成
+# db(Postgres),app(Django)のコンテナを作成
 services:
   db:
-    # コンテナ名をmysqlに設定
-    container_name: mysql
-    # MySQLのDockerfileをビルドする
+    # コンテナ名をpostgresに設定
+    container_name: postgres
+    # PostgreSQLのDockerfileをビルドする
     build:
       # ビルドコンテキストはカレントディレクトリ
       context: .
-      dockerfile: containers/mysql/Dockerfile
+      dockerfile: containers/postgres/Dockerfile
     # M1チップでも動くように
     # Intel Macの場合あってもなくても動く
     platform: linux/x86_64
     # DBのボリュームを指定
-    # ローカルの/data/dbをコンテナの/var/lib/mysqlにマウントする
+    # ローカルの/data/dbをコンテナの/var/lib/postgresql/dataにマウントする
     volumes:
-      - db_data:/var/lib/mysql
-    # 環境変数を.envを使って設定
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    # ヘルスチェック
+    healthcheck:
+      test: pg_isready -U "${POSTGRES_USER:-postgres}" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # コンテナ内の環境変数を.envを使って設定
     env_file:
       - .env
-    # DBのコンテナのヘルスチェックを行う
-    # mysqladmin(MySQLサーバーの管理を行うクライアントを使ってDBコンテナ自身(127.0.0.1)にpingを送ってヘルスチェックを行う
-    healthcheck:
-      test: mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD
-      # ヘルスチェックのインターバルは10秒
-      interval: 10s
-      # タイムアウト時間は10秒
-      timeout: 10s
-      # リトライ回数は3回
-      retries: 3
-      # ヘルスチェックが失敗しても無視する時間は30秒
-      start_period: 30s
   app:
     # コンテナ名をappに設定
     container_name: app
@@ -51,14 +48,13 @@ services:
     ports:
       - "8000:8000"
     # シェルスクリプトを実行
-    command: sh -c "/code/entrypoint.sh"
-    # 環境変数を.envを使って設定
+    command: sh -c "/usr/local/bin/entrypoint.sh"
+    # コンテナ内の環境変数を.envを使って設定
     env_file:
       - .env
     # 先にdbを起動してからappを起動する
     depends_on:
       db:
-        # dbのヘルスチェックが終わってからappを起動させる
         condition: service_healthy
 volumes:
   db_data:
